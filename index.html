@@ -1,0 +1,702 @@
+<!doctype html>
+<html lang="th" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&amp;family=Sawarabi+Gothic&amp;display=swap" rel="stylesheet">
+  <style>
+html, body { height: 100%; margin: 0; }
+* { box-sizing: border-box; }
+body { font-family: 'Noto Sans JP', sans-serif; }
+
+.card-flip { perspective: 1000px; cursor: pointer; }
+.card-inner { transition: transform 0.6s; transform-style: preserve-3d; position: relative; }
+.card-flip.flipped .card-inner { transform: rotateY(180deg); }
+.card-front, .card-back { backface-visibility: hidden; position: absolute; inset: 0; border-radius: 1rem; }
+.card-back { transform: rotateY(180deg); }
+
+@keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes popIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+@keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+@keyframes confetti { 0% { transform: translateY(0) rotate(0); opacity:1; } 100% { transform: translateY(-80px) rotate(360deg); opacity:0; } }
+.anim-slide { animation: slideIn 0.4s ease-out; }
+.anim-pop { animation: popIn 0.3s ease-out; }
+.anim-shake { animation: shake 0.3s ease-out; }
+
+.match-card { transition: all 0.3s; }
+.match-card.selected { transform: scale(1.05); box-shadow: 0 0 0 3px #f97316; }
+.match-card.correct { background: #22c55e !important; color: white !important; animation: popIn 0.3s; }
+.match-card.wrong { animation: shake 0.3s; }
+.match-card.matched { opacity: 0.4; pointer-events: none; }
+
+.progress-ring { transition: stroke-dashoffset 0.5s ease; }
+
+.quiz-opt { transition: all 0.2s; }
+.quiz-opt:hover:not(.disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+.quiz-opt.correct-answer { background: #22c55e !important; color: white !important; border-color: #22c55e !important; }
+.quiz-opt.wrong-answer { background: #ef4444 !important; color: white !important; border-color: #ef4444 !important; }
+.quiz-opt.disabled { pointer-events: none; }
+
+.chip { transition: all 0.2s; }
+.chip.active { transform: scale(1.05); }
+</style>
+  <script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        bg: '#0f0f1a',
+        surface: '#1a1a2e',
+        accent: '#f97316',
+        accent2: '#fb923c',
+        txt: '#e2e8f0',
+      }
+    }
+  }
+}
+</script>
+  <style>body { box-sizing: border-box; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full bg-bg text-txt overflow-auto">
+  <div id="app" class="h-full w-full flex flex-col">
+   <!-- HOME -->
+   <div id="page-home" class="flex-1 flex flex-col items-center justify-center p-6 anim-slide">
+    <div class="text-center mb-12">
+     <div class="text-6xl mb-4">
+      🏯
+     </div>
+     <h1 id="main-title" class="text-4xl md:text-5xl font-black mb-2 bg-gradient-to-r from-accent to-yellow-400 bg-clip-text text-transparent">漢字マスター</h1>
+     <p class="text-txt/60 text-lg">เรียนรู้คันจิอย่างสนุกสนาน</p>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-3xl">
+     <button onclick="goTo('flashcard')" class="group bg-surface hover:bg-surface/80 rounded-2xl p-8 text-center border border-white/5 hover:border-accent/40 transition-all hover:-translate-y-1">
+      <div class="text-5xl mb-4">
+       📇
+      </div><h2 class="text-xl font-bold mb-2">แฟลชการ์ด</h2><p class="text-sm text-txt/50">พลิกการ์ด เรียนรู้คันจิ</p></button> <button onclick="goTo('quiz-setup')" class="group bg-surface hover:bg-surface/80 rounded-2xl p-8 text-center border border-white/5 hover:border-accent/40 transition-all hover:-translate-y-1">
+      <div class="text-5xl mb-4">
+       🧠
+      </div><h2 class="text-xl font-bold mb-2">ควิซ</h2><p class="text-sm text-txt/50">ทดสอบความรู้คันจิ</p></button> <button onclick="goTo('match-setup')" class="group bg-surface hover:bg-surface/80 rounded-2xl p-8 text-center border border-white/5 hover:border-accent/40 transition-all hover:-translate-y-1">
+      <div class="text-5xl mb-4">
+       🎯
+      </div><h2 class="text-xl font-bold mb-2">เกมจับคู่</h2><p class="text-sm text-txt/50">จับคู่คันจิให้ถูกต้อง</p></button>
+    </div>
+   </div><!-- FLASHCARD -->
+   <div id="page-flashcard" class="flex-1 flex-col p-4 md:p-6 hidden">
+    <div class="flex items-center gap-3 mb-4">
+     <button onclick="goTo('home')" class="p-2 rounded-xl bg-surface hover:bg-surface/80 transition"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+     <h2 class="text-2xl font-bold">📇 แฟลชการ์ด</h2>
+    </div><!-- Subject Filter -->
+    <div id="fc-subjects" class="flex flex-wrap gap-2 mb-4"></div><!-- Progress -->
+    <div class="flex items-center justify-between mb-4 bg-surface rounded-xl p-3">
+     <span id="fc-progress-text" class="text-sm text-txt/60">0 / 0</span>
+     <div class="flex-1 mx-4 h-2 bg-bg rounded-full overflow-hidden">
+      <div id="fc-progress-bar" class="h-full bg-gradient-to-r from-accent to-yellow-400 rounded-full transition-all" style="width:0%"></div>
+     </div><button onclick="resetFlashcard()" class="text-xs text-accent hover:underline">รีเซ็ต</button>
+    </div><!-- Card -->
+    <div class="flex-1 flex items-center justify-center">
+     <div id="fc-card" class="card-flip w-full max-w-md h-72 md:h-80" onclick="flipCard()">
+      <div class="card-inner w-full h-full">
+       <div class="card-front bg-gradient-to-br from-surface to-surface/80 border border-white/10 flex items-center justify-center p-6">
+        <span id="fc-front" class="text-6xl md:text-7xl font-black"></span>
+       </div>
+       <div class="card-back bg-gradient-to-br from-accent/20 to-surface border border-accent/30 flex flex-col items-center justify-center p-6 text-center">
+        <div id="fc-furigana" class="text-2xl mb-2 text-accent"></div>
+        <div id="fc-meaning" class="text-xl mb-4"></div>
+        <div id="fc-example" class="text-sm text-txt/60 bg-bg/40 rounded-lg p-3 max-w-xs"></div>
+       </div>
+      </div>
+     </div>
+    </div><!-- Controls -->
+    <div class="flex justify-center gap-3 my-4">
+     <button onclick="fcNav('prev')" class="p-3 rounded-xl bg-surface hover:bg-surface/80 transition"><i data-lucide="chevron-left" class="w-5 h-5"></i></button> <button onclick="fcNav('random')" class="p-3 rounded-xl bg-surface hover:bg-surface/80 transition"><i data-lucide="shuffle" class="w-5 h-5"></i></button> <button onclick="fcNav('next')" class="p-3 rounded-xl bg-surface hover:bg-surface/80 transition"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+    </div><!-- Memory buttons -->
+    <div class="flex justify-center gap-3 mb-4">
+     <button onclick="fcMemory('forget')" class="px-4 py-2 rounded-xl bg-red-500/20 text-red-400 hover:bg-red-500/30 transition text-sm font-medium">😰 จำไม่ได้</button> <button onclick="fcMemory('maybe')" class="px-4 py-2 rounded-xl bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition text-sm font-medium">🤔 พอจำได้</button> <button onclick="fcMemory('know')" class="px-4 py-2 rounded-xl bg-green-500/20 text-green-400 hover:bg-green-500/30 transition text-sm font-medium">✅ จำได้แม่น</button>
+    </div><!-- Flashcard Complete -->
+    <div id="fc-complete" class="hidden flex-col items-center justify-center text-center p-8 anim-pop">
+     <div class="text-6xl mb-4">
+      🎉
+     </div>
+     <h3 class="text-2xl font-bold mb-2">ภารกิจสำเร็จ!</h3>
+     <p id="fc-score" class="text-lg text-txt/70 mb-4"></p><button onclick="resetFlashcard()" class="px-6 py-3 rounded-xl bg-accent text-white font-bold hover:bg-accent2 transition">เริ่มใหม่</button>
+    </div>
+   </div><!-- QUIZ SETUP -->
+   <div id="page-quiz-setup" class="flex-1 flex-col items-center justify-center p-6 hidden">
+    <div class="flex items-center gap-3 mb-6 w-full max-w-md">
+     <button onclick="goTo('home')" class="p-2 rounded-xl bg-surface hover:bg-surface/80 transition"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+     <h2 class="text-2xl font-bold">🧠 ควิซ</h2>
+    </div>
+    <div class="w-full max-w-md bg-surface rounded-2xl p-6 border border-white/5">
+     <h3 class="font-bold mb-3">เลือกหมวดหมู่</h3>
+     <div id="quiz-subjects" class="flex flex-wrap gap-2 mb-6"></div><button onclick="startQuiz()" class="w-full py-3 rounded-xl bg-accent text-white font-bold hover:bg-accent2 transition text-lg">เริ่มทำควิซ!</button>
+    </div>
+   </div><!-- QUIZ GAME -->
+   <div id="page-quiz" class="flex-1 flex-col p-4 md:p-6 hidden">
+    <div class="flex items-center justify-between mb-4">
+     <button onclick="goTo('quiz-setup')" class="p-2 rounded-xl bg-surface hover:bg-surface/80 transition"><i data-lucide="arrow-left" class="w-5 h-5"></i></button> <span id="quiz-counter" class="text-sm text-txt/60 bg-surface px-4 py-2 rounded-xl"></span> <span id="quiz-score-display" class="text-sm text-accent bg-surface px-4 py-2 rounded-xl font-bold"></span>
+    </div>
+    <div class="flex-1 flex flex-col items-center justify-center">
+     <div id="quiz-question-area" class="text-center mb-8 anim-slide">
+      <p id="quiz-prompt-label" class="text-sm text-txt/50 mb-2"></p>
+      <p id="quiz-prompt" class="text-5xl md:text-6xl font-black mb-2"></p>
+      <p id="quiz-prompt-sub" class="text-lg text-txt/50"></p>
+     </div>
+     <div id="quiz-options" class="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-lg"></div><button id="quiz-next-btn" class="hidden mt-6 px-8 py-3 rounded-xl bg-accent text-white font-bold hover:bg-accent2 transition anim-pop" onclick="nextQuizQuestion()">ข้อถัดไป →</button>
+    </div>
+   </div><!-- QUIZ RESULT -->
+   <div id="page-quiz-result" class="flex-1 flex-col items-center justify-center p-6 hidden anim-pop">
+    <div id="quiz-result-icon" class="text-7xl mb-4"></div>
+    <h3 id="quiz-result-title" class="text-3xl font-black mb-2"></h3>
+    <p id="quiz-result-msg" class="text-lg text-txt/60 mb-2"></p>
+    <p id="quiz-result-score" class="text-4xl font-bold text-accent mb-6"></p>
+    <div class="flex gap-3">
+     <button onclick="goTo('quiz-setup')" class="px-6 py-3 rounded-xl bg-surface text-txt font-bold hover:bg-surface/80 transition">เลือกใหม่</button> <button onclick="goTo('home')" class="px-6 py-3 rounded-xl bg-accent text-white font-bold hover:bg-accent2 transition">กลับหน้าหลัก</button>
+    </div>
+   </div><!-- MATCH SETUP -->
+   <div id="page-match-setup" class="flex-1 flex-col items-center justify-center p-6 hidden">
+    <div class="flex items-center gap-3 mb-6 w-full max-w-md">
+     <button onclick="goTo('home')" class="p-2 rounded-xl bg-surface hover:bg-surface/80 transition"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+     <h2 class="text-2xl font-bold">🎯 เกมจับคู่</h2>
+    </div>
+    <div class="w-full max-w-md bg-surface rounded-2xl p-6 border border-white/5">
+     <h3 class="font-bold mb-3">เลือกหมวดหมู่</h3>
+     <div id="match-subjects" class="flex flex-wrap gap-2 mb-4"></div>
+     <h3 class="font-bold mb-3">รูปแบบการจับคู่</h3>
+     <div class="flex gap-3 mb-6">
+      <button id="match-mode-meaning" onclick="setMatchMode('meaning')" class="flex-1 py-3 rounded-xl bg-accent text-white font-bold transition text-sm">Kanji ↔ ความหมาย</button> <button id="match-mode-furigana" onclick="setMatchMode('furigana')" class="flex-1 py-3 rounded-xl bg-bg text-txt/60 font-bold transition text-sm hover:bg-bg/80">Kanji ↔ Furigana</button>
+     </div><button onclick="startMatch()" class="w-full py-3 rounded-xl bg-accent text-white font-bold hover:bg-accent2 transition text-lg">เริ่มจับคู่!</button>
+    </div>
+   </div><!-- MATCH GAME -->
+   <div id="page-match" class="flex-1 flex-col p-4 md:p-6 hidden">
+    <div class="flex items-center justify-between mb-4">
+     <button onclick="goTo('match-setup')" class="p-2 rounded-xl bg-surface hover:bg-surface/80 transition"><i data-lucide="arrow-left" class="w-5 h-5"></i></button> <span id="match-round" class="text-sm text-txt/60 bg-surface px-4 py-2 rounded-xl"></span> <span id="match-score-display" class="text-sm text-accent bg-surface px-4 py-2 rounded-xl font-bold"></span>
+    </div>
+    <div id="match-board" class="flex-1 grid grid-cols-2 gap-3 max-w-2xl mx-auto w-full auto-rows-min content-center"></div>
+   </div><!-- MATCH RESULT -->
+   <div id="page-match-result" class="flex-1 flex-col items-center justify-center p-6 hidden anim-pop">
+    <div id="match-result-icon" class="text-7xl mb-4"></div>
+    <h3 id="match-result-title" class="text-3xl font-black mb-2"></h3>
+    <p id="match-result-msg" class="text-lg text-txt/60 mb-2"></p>
+    <p id="match-result-score" class="text-4xl font-bold text-accent mb-6"></p>
+    <div class="flex gap-3">
+     <button onclick="goTo('match-setup')" class="px-6 py-3 rounded-xl bg-surface text-txt font-bold hover:bg-surface/80 transition">เลือกใหม่</button> <button onclick="goTo('home')" class="px-6 py-3 rounded-xl bg-accent text-white font-bold hover:bg-accent2 transition">กลับหน้าหลัก</button>
+    </div>
+   </div>
+  </div>
+  <script>
+// ========== DATA ==========
+// kanjiData is loaded from kanji_data.tsv at startup
+let kanjiData = [];
+
+async function loadKanjiData() {
+  const response = await fetch('kanji_data.tsv');
+  const text = await response.text();
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split('\t');
+  kanjiData = lines.slice(1).map(line => {
+    const cols = line.split('\t');
+    return {
+      subject:  cols[0] || '',
+      kanji:    cols[1] || '',
+      furigana: cols[2] || '',
+      meaning:  cols[3] || '',
+      example:  cols[4] || '',
+    };
+  });
+}
+
+let subjects = [];
+function shuffle(arr) { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+
+// ========== NAVIGATION ==========
+const pages = ['home','flashcard','quiz-setup','quiz','quiz-result','match-setup','match','match-result'];
+function goTo(page) {
+  pages.forEach(p => {
+    const el = document.getElementById('page-'+p);
+    if(el) { el.classList.add('hidden'); el.classList.remove('flex'); }
+  });
+  const target = document.getElementById('page-'+page);
+  if(target) { target.classList.remove('hidden'); target.classList.add('flex'); }
+  if(page==='flashcard') initFlashcard();
+  if(page==='quiz-setup') initQuizSetup();
+  if(page==='match-setup') initMatchSetup();
+  lucide.createIcons();
+}
+
+// ========== FLASHCARD ==========
+let fcCards=[], fcIndex=0, fcSelectedSubjects=new Set(subjects), fcQueue=[], fcVisitCount={}, fcMemoryResults={};
+
+function initFlashcard() {
+  renderFcSubjects();
+  resetFlashcard();
+}
+
+function renderFcSubjects() {
+  const c = document.getElementById('fc-subjects');
+  c.innerHTML = '<button onclick="toggleFcSubject(\'all\')" class="chip px-3 py-1.5 rounded-full text-xs font-medium bg-accent text-white" id="fc-chip-all">ทั้งหมด</button>';
+  subjects.forEach(s => {
+    c.innerHTML += `<button onclick="toggleFcSubject('${s}')" class="chip px-3 py-1.5 rounded-full text-xs font-medium bg-surface text-txt/60 border border-white/10" id="fc-chip-${s}">${s}</button>`;
+  });
+  updateFcChips();
+}
+
+function toggleFcSubject(s) {
+  if(s==='all') { fcSelectedSubjects = new Set(subjects); }
+  else {
+    if(fcSelectedSubjects.size===subjects.length) fcSelectedSubjects.clear();
+    if(fcSelectedSubjects.has(s)) fcSelectedSubjects.delete(s); else fcSelectedSubjects.add(s);
+    if(fcSelectedSubjects.size===0) fcSelectedSubjects = new Set(subjects);
+  }
+  updateFcChips();
+  resetFlashcard();
+}
+
+function updateFcChips() {
+  const allSelected = fcSelectedSubjects.size===subjects.length;
+  const allChip = document.getElementById('fc-chip-all');
+  if(allChip) { allChip.className = `chip px-3 py-1.5 rounded-full text-xs font-medium ${allSelected?'bg-accent text-white active':'bg-surface text-txt/60 border border-white/10'}`; }
+  subjects.forEach(s => {
+    const chip = document.getElementById('fc-chip-'+s);
+    if(chip) { chip.className = `chip px-3 py-1.5 rounded-full text-xs font-medium ${fcSelectedSubjects.has(s)?'bg-accent text-white active':'bg-surface text-txt/60 border border-white/10'}`; }
+  });
+}
+
+function resetFlashcard() {
+  fcCards = shuffle(kanjiData.filter(k => fcSelectedSubjects.has(k.subject)));
+  fcIndex = 0;
+  fcQueue = [...Array(fcCards.length).keys()];
+  fcVisitCount = {};
+  fcMemoryResults = {};
+  fcCards.forEach((_,i) => { fcVisitCount[i]=0; fcMemoryResults[i]=[]; });
+  document.getElementById('fc-complete').classList.add('hidden');
+  document.getElementById('fc-complete').classList.remove('flex');
+  showFcCard();
+}
+
+function showFcCard() {
+  if(fcQueue.length===0) { showFcComplete(); return; }
+  const card = fcCards[fcQueue[0]];
+  document.getElementById('fc-card').classList.remove('flipped');
+  document.getElementById('fc-front').textContent = card.kanji;
+  document.getElementById('fc-furigana').textContent = card.furigana;
+  document.getElementById('fc-meaning').textContent = card.meaning;
+  document.getElementById('fc-example').textContent = card.example;
+  updateFcProgress();
+}
+
+function flipCard() { document.getElementById('fc-card').classList.toggle('flipped'); }
+
+function fcNav(dir) {
+  if(dir==='prev' && fcQueue.length>1) { fcQueue.unshift(fcQueue.pop()); }
+  else if(dir==='next' && fcQueue.length>1) { fcQueue.push(fcQueue.shift()); }
+  else if(dir==='random') { fcQueue = shuffle(fcQueue); }
+  showFcCard();
+}
+
+function fcMemory(type) {
+  if(fcQueue.length===0) return;
+  const idx = fcQueue.shift();
+  fcVisitCount[idx] = (fcVisitCount[idx]||0) + 1;
+  fcMemoryResults[idx].push(type);
+
+  if(type==='forget') {
+    const insertAt = Math.min(3, fcQueue.length);
+    fcQueue.splice(insertAt, 0, idx);
+  } else if(type==='maybe') {
+    const insertAt = Math.min(5, fcQueue.length);
+    fcQueue.splice(insertAt, 0, idx);
+  } else {
+    // 'know' - comes back at end, but check if done (3 visits)
+    if(fcVisitCount[idx] < 3) {
+      fcQueue.push(idx);
+    }
+  }
+
+  // Check if all cards visited 3 times
+  const allDone = fcCards.every((_,i) => fcVisitCount[i] >= 3);
+  if(allDone) { showFcComplete(); return; }
+
+  // Remove cards that have 3+ visits from queue
+  fcQueue = fcQueue.filter(i => fcVisitCount[i] < 3);
+  if(fcQueue.length===0) { showFcComplete(); return; }
+
+  showFcCard();
+}
+
+function updateFcProgress() {
+  const total = fcCards.length;
+  const done = fcCards.filter((_,i) => fcVisitCount[i]>=3).length;
+  document.getElementById('fc-progress-text').textContent = `${done} / ${total}`;
+  document.getElementById('fc-progress-bar').style.width = `${total?done/total*100:0}%`;
+}
+
+function showFcComplete() {
+  document.getElementById('fc-card').classList.add('hidden');
+  const el = document.getElementById('fc-complete');
+  el.classList.remove('hidden'); el.classList.add('flex');
+  // Calculate % of "know" responses
+  let knowCount=0, totalResponses=0;
+  fcCards.forEach((_,i) => {
+    fcMemoryResults[i].forEach(r => { totalResponses++; if(r==='know') knowCount++; });
+  });
+  const pct = totalResponses ? Math.round(knowCount/totalResponses*100) : 0;
+  document.getElementById('fc-score').textContent = `ความแม่นยำ: ${pct}% (จำได้แม่น ${knowCount}/${totalResponses} ครั้ง)`;
+  // Unhide card for reset
+  setTimeout(() => document.getElementById('fc-card').classList.remove('hidden'), 0);
+}
+
+// ========== QUIZ ==========
+let quizSelectedSubjects = new Set(subjects), quizQuestions=[], quizIndex=0, quizCorrect=0, quizAnswered=false;
+const quizTypes = ['kanji-meaning','kanji-furigana','meaning-kanji','furigana-kanji'];
+
+function initQuizSetup() {
+  quizSelectedSubjects = new Set(subjects);
+  const c = document.getElementById('quiz-subjects');
+  c.innerHTML = '';
+  subjects.forEach(s => {
+    c.innerHTML += `<button onclick="toggleQuizSubject('${s}')" class="chip px-3 py-1.5 rounded-full text-xs font-medium bg-accent text-white active" id="quiz-chip-${s}">${s}</button>`;
+  });
+}
+
+function toggleQuizSubject(s) {
+  if(quizSelectedSubjects.has(s)) quizSelectedSubjects.delete(s); else quizSelectedSubjects.add(s);
+  if(quizSelectedSubjects.size===0) quizSelectedSubjects.add(s);
+  subjects.forEach(sub => {
+    const chip = document.getElementById('quiz-chip-'+sub);
+    if(chip) chip.className = `chip px-3 py-1.5 rounded-full text-xs font-medium ${quizSelectedSubjects.has(sub)?'bg-accent text-white active':'bg-surface text-txt/60 border border-white/10'}`;
+  });
+}
+
+function startQuiz() {
+  const pool = kanjiData.filter(k => quizSelectedSubjects.has(k.subject));
+  if(pool.length < 4) return;
+  quizQuestions = shuffle(pool).map(item => {
+    const type = quizTypes[Math.floor(Math.random()*quizTypes.length)];
+    return buildQuizQuestion(item, type, pool);
+  });
+  quizIndex=0; quizCorrect=0;
+  goTo('quiz');
+  showQuizQuestion();
+}
+
+function buildQuizQuestion(item, type, pool) {
+  let prompt, promptLabel, promptSub='', correctAnswer, field;
+  if(type==='kanji-meaning') { prompt=item.kanji; promptLabel='คันจิ → ความหมาย'; correctAnswer=item.meaning; field='meaning'; }
+  else if(type==='kanji-furigana') { prompt=item.kanji; promptLabel='คันจิ → Furigana'; correctAnswer=item.furigana; field='furigana'; }
+  else if(type==='meaning-kanji') { prompt=item.meaning; promptLabel='ความหมาย → คันจิ'; correctAnswer=item.kanji; field='kanji'; }
+  else { prompt=item.furigana; promptLabel='Furigana → คันจิ'; correctAnswer=item.kanji; field='kanji'; }
+
+  const wrongs = shuffle(pool.filter(k => k[field]!==correctAnswer)).slice(0,3).map(k => k[field]);
+  const options = shuffle([correctAnswer, ...wrongs]);
+  return { prompt, promptLabel, promptSub, correctAnswer, options };
+}
+
+function showQuizQuestion() {
+  quizAnswered = false;
+  const q = quizQuestions[quizIndex];
+  document.getElementById('quiz-counter').textContent = `ข้อ ${quizIndex+1}/${quizQuestions.length}`;
+  document.getElementById('quiz-score-display').textContent = `✓ ${quizCorrect}`;
+  document.getElementById('quiz-prompt-label').textContent = q.promptLabel;
+  document.getElementById('quiz-prompt').textContent = q.prompt;
+  document.getElementById('quiz-next-btn').classList.add('hidden');
+  const oc = document.getElementById('quiz-options');
+  oc.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'quiz-opt bg-surface border border-white/10 rounded-xl p-4 text-left text-lg font-medium hover:border-accent/40';
+    btn.textContent = opt;
+    btn.onclick = () => selectQuizAnswer(i, opt, q.correctAnswer);
+    oc.appendChild(btn);
+  });
+  // Animate
+  document.getElementById('quiz-question-area').classList.remove('anim-slide');
+  void document.getElementById('quiz-question-area').offsetWidth;
+  document.getElementById('quiz-question-area').classList.add('anim-slide');
+}
+
+function selectQuizAnswer(i, selected, correct) {
+  if(quizAnswered) return;
+  quizAnswered = true;
+  const btns = document.querySelectorAll('#quiz-options .quiz-opt');
+  btns.forEach(b => {
+    b.classList.add('disabled');
+    if(b.textContent === correct) b.classList.add('correct-answer');
+    if(b.textContent === selected && selected !== correct) b.classList.add('wrong-answer');
+  });
+  if(selected === correct) quizCorrect++;
+  document.getElementById('quiz-score-display').textContent = `✓ ${quizCorrect}`;
+  document.getElementById('quiz-next-btn').classList.remove('hidden');
+}
+
+function nextQuizQuestion() {
+  quizIndex++;
+  if(quizIndex >= quizQuestions.length) {
+    showQuizResult();
+  } else {
+    showQuizQuestion();
+  }
+}
+
+function showQuizResult() {
+  const pct = Math.round(quizCorrect / quizQuestions.length * 100);
+  let icon, title, msg;
+  if(pct > 85) { icon='🏆'; title='เยี่ยมยอด!'; msg='คุณเก่งมาก! ไปต่อเลย!'; }
+  else if(pct > 75) { icon='🌟'; title='เก่งมากแล้ว!'; msg='พยายามต่อไปนะ!'; }
+  else { icon='📖'; title='ลองทบทวนอีกครั้ง'; msg='อ่านทบทวนแล้วมาลองใหม่นะ!'; }
+  document.getElementById('quiz-result-icon').textContent = icon;
+  document.getElementById('quiz-result-title').textContent = title;
+  document.getElementById('quiz-result-msg').textContent = msg;
+  document.getElementById('quiz-result-score').textContent = `${quizCorrect}/${quizQuestions.length} (${pct}%)`;
+  goTo('quiz-result');
+}
+
+// ========== MATCH GAME ==========
+let matchMode='meaning', matchSelectedSubjects=new Set(subjects);
+let matchRound=0, matchTotalRounds=3, matchCorrectTotal=0, matchTotalAttempts=0;
+let matchPool=[], matchWrongItems=[], matchSelected=null, matchPairs=[];
+
+function initMatchSetup() {
+  matchSelectedSubjects = new Set(subjects);
+  const c = document.getElementById('match-subjects');
+  c.innerHTML = '';
+  subjects.forEach(s => {
+    c.innerHTML += `<button onclick="toggleMatchSubject('${s}')" class="chip px-3 py-1.5 rounded-full text-xs font-medium bg-accent text-white active" id="match-chip-${s}">${s}</button>`;
+  });
+  setMatchMode('meaning');
+}
+
+function toggleMatchSubject(s) {
+  if(matchSelectedSubjects.has(s)) matchSelectedSubjects.delete(s); else matchSelectedSubjects.add(s);
+  if(matchSelectedSubjects.size===0) matchSelectedSubjects.add(s);
+  subjects.forEach(sub => {
+    const chip = document.getElementById('match-chip-'+sub);
+    if(chip) chip.className = `chip px-3 py-1.5 rounded-full text-xs font-medium ${matchSelectedSubjects.has(sub)?'bg-accent text-white active':'bg-surface text-txt/60 border border-white/10'}`;
+  });
+}
+
+function setMatchMode(mode) {
+  matchMode = mode;
+  document.getElementById('match-mode-meaning').className = `flex-1 py-3 rounded-xl font-bold transition text-sm ${mode==='meaning'?'bg-accent text-white':'bg-bg text-txt/60 hover:bg-bg/80'}`;
+  document.getElementById('match-mode-furigana').className = `flex-1 py-3 rounded-xl font-bold transition text-sm ${mode==='furigana'?'bg-accent text-white':'bg-bg text-txt/60 hover:bg-bg/80'}`;
+}
+
+function startMatch() {
+  matchPool = kanjiData.filter(k => matchSelectedSubjects.has(k.subject));
+  if(matchPool.length < 4) return;
+  matchRound=0; matchCorrectTotal=0; matchTotalAttempts=0; matchWrongItems=[];
+  nextMatchRound();
+}
+
+function nextMatchRound() {
+  matchRound++;
+  if(matchRound > matchTotalRounds) { showMatchResult(); return; }
+  goTo('match');
+
+  let roundItems;
+  if(matchRound===1) {
+    roundItems = shuffle(matchPool).slice(0, Math.min(6, matchPool.length));
+  } else {
+    // Include wrong items from previous round + fill with others
+    const wrongs = [...matchWrongItems];
+    matchWrongItems = [];
+    const remaining = shuffle(matchPool.filter(k => !wrongs.includes(k)));
+    const needed = Math.min(6, matchPool.length) - wrongs.length;
+    roundItems = shuffle([...wrongs, ...remaining.slice(0, Math.max(0, needed))]);
+  }
+
+  document.getElementById('match-round').textContent = `ครั้งที่ ${matchRound}/${matchTotalRounds}`;
+  document.getElementById('match-score-display').textContent = `✓ ${matchCorrectTotal}`;
+
+  // Build pairs
+  matchPairs = roundItems.map(item => ({
+    item,
+    matched: false,
+  }));
+  matchSelected = null;
+
+  renderMatchBoard();
+}
+
+function renderMatchBoard() {
+  const board = document.getElementById('match-board');
+  board.innerHTML = '';
+
+  const leftItems = shuffle(matchPairs.filter(p=>!p.matched));
+  const rightItems = shuffle(matchPairs.filter(p=>!p.matched));
+
+  // Left column: kanji
+  const leftCol = document.createElement('div');
+  leftCol.className = 'flex flex-col gap-2';
+  leftItems.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'match-card bg-surface border border-white/10 rounded-xl p-3 text-center text-xl font-bold transition';
+    btn.textContent = p.item.kanji;
+    btn.dataset.id = p.item.kanji;
+    btn.dataset.side = 'left';
+    btn.onclick = () => selectMatchCard(btn, p, 'left');
+    if(p.matched) btn.classList.add('matched');
+    leftCol.appendChild(btn);
+  });
+
+  // Right column: meaning or furigana
+  const rightCol = document.createElement('div');
+  rightCol.className = 'flex flex-col gap-2';
+  rightItems.forEach(p => {
+    const val = matchMode==='meaning' ? p.item.meaning : p.item.furigana;
+    const btn = document.createElement('button');
+    btn.className = 'match-card bg-surface border border-white/10 rounded-xl p-3 text-center text-base font-medium transition';
+    btn.textContent = val;
+    btn.dataset.id = p.item.kanji;
+    btn.dataset.side = 'right';
+    btn.onclick = () => selectMatchCard(btn, p, 'right');
+    if(p.matched) btn.classList.add('matched');
+    rightCol.appendChild(btn);
+  });
+
+  board.appendChild(leftCol);
+  board.appendChild(rightCol);
+}
+
+let matchFirst = null;
+function selectMatchCard(btn, pair, side) {
+  if(pair.matched) return;
+
+  // Remove previous selections
+  document.querySelectorAll('.match-card.selected').forEach(b => b.classList.remove('selected'));
+  
+  if(!matchFirst) {
+    matchFirst = { btn, pair, side };
+    btn.classList.add('selected');
+  } else {
+    if(matchFirst.side === side) {
+      // Same side, switch selection
+      matchFirst = { btn, pair, side };
+      btn.classList.add('selected');
+      return;
+    }
+    
+    btn.classList.add('selected');
+    matchTotalAttempts++;
+
+    const leftPair = side==='left' ? pair : matchFirst.pair;
+    const rightPair = side==='right' ? pair : matchFirst.pair;
+
+    if(leftPair.item.kanji === rightPair.item.kanji) {
+      // Correct!
+      matchCorrectTotal++;
+      leftPair.matched = true;
+      rightPair.matched = true;
+
+      const leftBtn = side==='left' ? btn : matchFirst.btn;
+      const rightBtn = side==='right' ? btn : matchFirst.btn;
+      leftBtn.classList.add('correct');
+      rightBtn.classList.add('correct');
+
+      document.getElementById('match-score-display').textContent = `✓ ${matchCorrectTotal}`;
+
+      setTimeout(() => {
+        leftBtn.classList.add('matched');
+        rightBtn.classList.add('matched');
+        matchFirst = null;
+
+        // Check if round complete
+        if(matchPairs.every(p=>p.matched)) {
+          setTimeout(() => nextMatchRound(), 500);
+        }
+      }, 600);
+    } else {
+      // Wrong
+      const leftBtn = side==='left' ? btn : matchFirst.btn;
+      const rightBtn = side==='right' ? btn : matchFirst.btn;
+      leftBtn.classList.add('wrong');
+      rightBtn.classList.add('wrong');
+
+      // Track wrong items
+      if(!matchWrongItems.includes(leftPair.item)) matchWrongItems.push(leftPair.item);
+      if(!matchWrongItems.includes(rightPair.item)) matchWrongItems.push(rightPair.item);
+
+      setTimeout(() => {
+        leftBtn.classList.remove('wrong','selected');
+        rightBtn.classList.remove('wrong','selected');
+        matchFirst = null;
+      }, 500);
+      return;
+    }
+    matchFirst = null;
+  }
+}
+
+function showMatchResult() {
+  const pct = matchTotalAttempts ? Math.round(matchCorrectTotal / matchTotalAttempts * 100) : 0;
+  let icon, title, msg;
+  if(pct > 85) { icon='🏆'; title='เยี่ยมยอด!'; msg='จับคู่ได้แม่นยำมาก!'; }
+  else if(pct > 75) { icon='🌟'; title='เก่งมากแล้ว!'; msg='พยายามต่อไปนะ!'; }
+  else { icon='📖'; title='ลองทบทวนอีกครั้ง'; msg='ฝึกซ้อมเพิ่มแล้วมาลองใหม่!'; }
+  document.getElementById('match-result-icon').textContent = icon;
+  document.getElementById('match-result-title').textContent = title;
+  document.getElementById('match-result-msg').textContent = msg;
+  document.getElementById('match-result-score').textContent = `${matchCorrectTotal}/${matchTotalAttempts} (${pct}%)`;
+  goTo('match-result');
+}
+
+// ========== ELEMENT SDK ==========
+const defaultConfig = {
+  app_title: '漢字マスター',
+  background_color: '#0f0f1a',
+  surface_color: '#1a1a2e',
+  text_color: '#e2e8f0',
+  accent_color: '#f97316',
+  secondary_action_color: '#fb923c',
+  font_family: 'Noto Sans JP',
+  font_size: 16,
+};
+
+function applyConfig(config) {
+  document.body.style.backgroundColor = config.background_color || defaultConfig.background_color;
+  document.body.style.color = config.text_color || defaultConfig.text_color;
+  document.body.style.fontFamily = `${config.font_family || defaultConfig.font_family}, sans-serif`;
+  document.getElementById('main-title').textContent = config.app_title || defaultConfig.app_title;
+
+  // Apply CSS variables for dynamic colors
+  const root = document.documentElement;
+  root.style.setProperty('--bg', config.background_color || defaultConfig.background_color);
+  root.style.setProperty('--surface', config.surface_color || defaultConfig.surface_color);
+  root.style.setProperty('--accent', config.accent_color || defaultConfig.accent_color);
+  root.style.setProperty('--txt', config.text_color || defaultConfig.text_color);
+}
+
+if(window.elementSdk) {
+  window.elementSdk.init({
+    defaultConfig,
+    onConfigChange: async (config) => applyConfig(config),
+    mapToCapabilities: (config) => ({
+      recolorables: [
+        { get:()=>config.background_color||defaultConfig.background_color, set:(v)=>{config.background_color=v;window.elementSdk.setConfig({background_color:v})} },
+        { get:()=>config.surface_color||defaultConfig.surface_color, set:(v)=>{config.surface_color=v;window.elementSdk.setConfig({surface_color:v})} },
+        { get:()=>config.text_color||defaultConfig.text_color, set:(v)=>{config.text_color=v;window.elementSdk.setConfig({text_color:v})} },
+        { get:()=>config.accent_color||defaultConfig.accent_color, set:(v)=>{config.accent_color=v;window.elementSdk.setConfig({accent_color:v})} },
+        { get:()=>config.secondary_action_color||defaultConfig.secondary_action_color, set:(v)=>{config.secondary_action_color=v;window.elementSdk.setConfig({secondary_action_color:v})} },
+      ],
+      borderables: [],
+      fontEditable: { get:()=>config.font_family||defaultConfig.font_family, set:(v)=>{config.font_family=v;window.elementSdk.setConfig({font_family:v})} },
+      fontSizeable: { get:()=>config.font_size||defaultConfig.font_size, set:(v)=>{config.font_size=v;window.elementSdk.setConfig({font_size:v})} },
+    }),
+    mapToEditPanelValues: (config) => new Map([
+      ['app_title', config.app_title || defaultConfig.app_title],
+    ]),
+  });
+}
+
+// Init
+loadKanjiData().then(() => {
+  subjects = [...new Set(kanjiData.map(k => k.subject))];
+  goTo('home');
+  lucide.createIcons();
+});
+</script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9ea3ead5f030d778',t:'MTc3NTg0NjgxOC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
