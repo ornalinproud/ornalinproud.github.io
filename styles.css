@@ -1,6 +1,28 @@
-body{
-  padding: 25px;
-}
-.title {
-	color: #5C6AC4;
-}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { font-family: 'Noto Sans JP', sans-serif; }
+
+.card-flip { perspective: 1000px; cursor: pointer; }
+.card-inner { transition: transform 0.6s; transform-style: preserve-3d; position: relative; width: 100%; height: 100%; }
+.card-flip.flipped .card-inner { transform: rotateY(180deg); }
+.card-front, .card-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 1rem; }
+.card-back { transform: rotateY(180deg); }
+
+.fade-in { animation: fadeIn 0.3s ease-in; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.match-card { transition: all 0.3s ease; }
+.match-card.selected { transform: scale(1.05); box-shadow: 0 0 0 3px #6366f1; }
+.match-card.correct { background: #10b981 !important; color: white !important; }
+.match-card.wrong { animation: shake 0.5s ease; }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+
+.btn-primary { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+.btn-primary:hover { background: linear-gradient(135deg, #4f46e5, #7c3aed); }
+
+.status-green { background: #10b981; color: white; }
+.status-yellow { background: #f59e0b; color: white; }
+.status-red { background: #ef4444; color: white; }
+.status-gray { background: #9ca3af; color: white; }
+
+body { box-sizing: border-box; }
